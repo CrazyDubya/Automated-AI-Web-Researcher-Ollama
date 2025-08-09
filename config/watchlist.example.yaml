@@ -1,0 +1,35 @@
+version: 1
+timezone: "America/Los_Angeles"
+storage:
+  base_dir: ".radar"
+  reports_dir: "reports"
+ethics:
+  user_agent: "RadarBot/0.1 (+contact: you@example.com)"
+  obey_robots: true
+  rate_limit_per_domain_per_minute: 6
+  request_timeout_seconds: 20
+  cache_max_age_days: 30
+llm:
+  chat_model: "llama3.1:8b-instruct-q4_0"
+  embed_model: "nomic-embed-text"
+  temperature: 0.2
+  max_tokens: 1200
+schedules:
+  daily:
+    enabled: true
+    time: "07:30"
+  weekly:
+    enabled: true
+    day: "Sunday"
+    time: "08:00"
+outputs:
+  formats: ["markdown"]
+  include_citations: true
+  include_diffs: true
+  group_by_tags: true
+watchlist:
+  feeds: []
+  urls_diff: []
+  pdf_sources: []
+  local_paths: []
+topics: []

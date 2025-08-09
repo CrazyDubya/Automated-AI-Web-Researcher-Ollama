@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.local.radar.daily</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string><string>python3</string>
+    <string>cli/radar.py</string><string>run</string><string>--mode</string><string>daily</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>7</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+  <key>WorkingDirectory</key><string>REPO_ABSOLUTE_PATH</string>
+  <key>StandardOutPath</key><string>REPO_ABSOLUTE_PATH/.radar/logs/daily.out.log</string>
+  <key>StandardErrorPath</key><string>REPO_ABSOLUTE_PATH/.radar/logs/daily.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OLLAMA_HOST</key><string>http://127.0.0.1:11434</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+</dict>
+</plist>

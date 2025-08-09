@@ -41,3 +41,6 @@ build/
 # Other
 *.bak
 *.tmp
+
+# Local Radar runtime data
+.radar/
