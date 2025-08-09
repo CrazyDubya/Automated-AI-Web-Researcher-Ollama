@@ -11,6 +11,14 @@ from llm_wrapper import LLMWrapper
 from strategic_analysis_parser import StrategicAnalysisParser
 from research_manager import ResearchManager
 
+# Local Radar integration
+try:
+    from local_radar.cli import local_radar_cli
+    LOCAL_RADAR_AVAILABLE = True
+except ImportError:
+    LOCAL_RADAR_AVAILABLE = False
+    print(f"{Fore.YELLOW}Local Radar features not available. Install additional dependencies if needed.{Style.RESET_ALL}")
+
 # Initialize colorama
 if os.name == 'nt':  # Windows-specific initialization
     init(convert=True, strip=False, wrap=True)
@@ -64,7 +72,18 @@ def print_header():
     Usage:
     - Start your research query with '@'
       Example: "@analyze the impact of AI on healthcare"
-
+    """ + Style.RESET_ALL)
+    
+    if LOCAL_RADAR_AVAILABLE:
+        print(Fore.CYAN + """
+    Local Radar Commands:
+    - Use '#' prefix for Local Radar commands
+      Example: "#lr_help" for available commands
+      Example: "#lr_generate_daily" to create daily brief
+      Example: "#lr_search AI trends" to search indexed content
+    """ + Style.RESET_ALL)
+    
+    print(Fore.YELLOW + """
     Press CTRL+D (Linux/Mac) or CTRL+Z (Windows) to submit input.
     """ + Style.RESET_ALL)
     
@@ -268,8 +287,16 @@ def main():
                     research_query = user_input[1:].strip()
                     handle_research_mode(research_manager, research_query)
 
+                elif user_input.startswith('#') and LOCAL_RADAR_AVAILABLE:
+                    lr_command = user_input[1:].strip()
+                    result = local_radar_cli.handle_command(lr_command)
+                    print(f"{Fore.CYAN}{result}{Style.RESET_ALL}")
+
                 else:
-                    print(f"{Fore.RED}Please start with '/' for search or '@' for research.{Style.RESET_ALL}")
+                    if LOCAL_RADAR_AVAILABLE:
+                        print(f"{Fore.RED}Please start with '/' for search, '@' for research, or '#' for Local Radar commands.{Style.RESET_ALL}")
+                    else:
+                        print(f"{Fore.RED}Please start with '/' for search or '@' for research.{Style.RESET_ALL}")
 
             except KeyboardInterrupt:
                 print(f"\n{Fore.YELLOW}Exiting program...{Style.RESET_ALL}")

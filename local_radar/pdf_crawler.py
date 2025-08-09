@@ -20,9 +20,13 @@ from pdfminer.pdfpage import PDFPage
 from pdfminer.converter import TextConverter
 from pdfminer.layout import LAParams
 from io import StringIO
-import pytesseract
-from PIL import Image
-import fitz  # PyMuPDF for PDF to image conversion
+try:
+    import pytesseract
+    from PIL import Image
+    import fitz  # PyMuPDF for PDF to image conversion
+    TESSERACT_AVAILABLE = True
+except ImportError:
+    TESSERACT_AVAILABLE = False
 
 from .config import config
 
@@ -320,7 +324,7 @@ class PDFPatternCrawler:
                 self.logger.debug(f"PDFMiner failed for {pdf_url}: {e}")
             
             # Try OCR fallback if enabled
-            if self.config.pdf.enable_ocr:
+            if self.config.pdf.enable_ocr and TESSERACT_AVAILABLE:
                 try:
                     text = self._extract_with_ocr(pdf_content)
                     if text and len(text.strip()) > 20:
@@ -374,6 +378,9 @@ class PDFPatternCrawler:
     
     def _extract_with_ocr(self, pdf_content: bytes) -> str:
         """Extract text using OCR (tesseract)"""
+        if not TESSERACT_AVAILABLE:
+            raise Exception("Tesseract OCR not available")
+            
         # Convert PDF to images using PyMuPDF
         doc = fitz.open(stream=pdf_content, filetype="pdf")
         text_parts = []
@@ -387,6 +394,7 @@ class PDFPatternCrawler:
             img_data = pix.tobytes("png")
             
             # Convert to PIL Image
+            from io import BytesIO
             image = Image.open(BytesIO(img_data))
             
             # Run OCR

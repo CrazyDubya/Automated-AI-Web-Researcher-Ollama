@@ -1,0 +1,27 @@
+{
+  "documents": [
+    "Sample AI Research Finding\n\nThis is a sample research entry about artificial intelligence trends and developments in 2024."
+  ],
+  "document_metadata": [
+    {
+      "title": "Sample AI Research Finding",
+      "source_url": "https://example.com/ai-research",
+      "timestamp": "2025-08-09T18:44:23.570068",
+      "tags": [
+        "AI",
+        "technology",
+        "trends"
+      ],
+      "confidence_score": 0.9,
+      "type": "report_entry",
+      "doc_id": "475e7ecdc8b88a98334ee957057a76e6",
+      "added_at": "2025-08-09T18:44:23.570109"
+    }
+  ],
+  "use_sentence_transformers": false,
+  "config": {
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "chunk_size": 512,
+    "chunk_overlap": 50
+  }
+}

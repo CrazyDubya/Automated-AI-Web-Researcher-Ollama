@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ data.brief_type|title }} Brief - {{ data.date_range }}</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{ data.brief_type|title }} Research Brief</h1>
+            <p>{{ data.date_range }}</p>
+            <div class="metadata">
+                <span>Generated: {{ data.generated_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                <span>Entries: {{ data.entries|length }}</span>
+            </div>
+        </header>
+        
+        <nav>
+            <a href="index.html">← Back to Dashboard</a>
+        </nav>
+        
+        <main>
+            <section class="summary">
+                <h2>Summary</h2>
+                <p>{{ data.summary }}</p>
+                
+                <div class="tags">
+                    {% for tag in data.tags %}
+                    <span class="tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </section>
+            
+            <section class="entries">
+                <h2>Research Entries</h2>
+                {% for entry in data.entries %}
+                <article class="entry">
+                    <h3>{{ entry.title }}</h3>
+                    <div class="entry-meta">
+                        <span class="source"><a href="{{ entry.source_url }}" target="_blank">Source</a></span>
+                        <span class="timestamp">{{ entry.timestamp.strftime('%Y-%m-%d %H:%M') }}</span>
+                        <span class="confidence">Confidence: {{ (entry.confidence_score * 100)|round(1) }}%</span>
+                    </div>
+                    <div class="content">{{ entry.content }}</div>
+                    <div class="entry-tags">
+                        {% for tag in entry.tags %}
+                        <span class="tag small">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                </article>
+                {% endfor %}
+            </section>
+        </main>
+    </div>
+</body>
+</html>

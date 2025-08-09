@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Example Research Papers",
+    "url_pattern": "https://example.com/papers/*.pdf",
+    "description": "Example pattern for research papers - DISABLED by default",
+    "enabled": false,
+    "max_pages": 0,
+    "metadata": {
+      "category": "research",
+      "source_type": "academic"
+    }
+  },
+  {
+    "name": "Annual Reports Pattern",
+    "url_pattern": "https://company.example.com/reports/{2020..2024}.pdf", 
+    "description": "Example numeric expansion pattern - DISABLED by default",
+    "enabled": false,
+    "max_pages": 10,
+    "metadata": {
+      "category": "corporate",
+      "source_type": "reports"
+    }
+  },
+  {
+    "name": "Documentation Site",
+    "url_pattern": "https://docs.example.com/guides/",
+    "description": "Example directory crawling - DISABLED by default", 
+    "enabled": false,
+    "max_pages": 0,
+    "metadata": {
+      "category": "documentation",
+      "source_type": "technical"
+    }
+  }
+]

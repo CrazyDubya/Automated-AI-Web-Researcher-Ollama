@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Radar - Research Dashboard</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Local Radar Dashboard</h1>
+            <p>Research briefs and dossiers generated on {{ data.generated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+            <div class="stats">
+                <span class="stat">{{ data.total_briefs }} Briefs</span>
+                <span class="stat">{{ data.total_dossiers }} Dossiers</span>
+            </div>
+        </header>
+        
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search reports...">
+            </div>
+            <div class="filter-tags">
+                <label>Filter by tags:</label>
+                <select id="tagFilter">
+                    <option value="">All tags</option>
+                    {% for tag in data.all_tags %}
+                    <option value="{{ tag }}">{{ tag }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <main>
+            <section class="briefs-section">
+                <h2>Research Briefs</h2>
+                <div class="grid" id="briefsGrid">
+                    {% for brief in data.briefs %}
+                    <div class="card brief-card" data-tags="{{ brief.tags|join(',') }}">
+                        <h3><a href="{{ brief.filename }}">{{ brief.type|title }} Brief</a></h3>
+                        <p class="date">{{ brief.date }}</p>
+                        <div class="tags">
+                            {% for tag in brief.tags %}
+                            <span class="tag">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            
+            <section class="dossiers-section">
+                <h2>Research Dossiers</h2>
+                <div class="grid" id="dossiersGrid">
+                    {% for dossier in data.dossiers %}
+                    <div class="card dossier-card" data-tags="{{ dossier.tags|join(',') }}">
+                        <h3><a href="{{ dossier.filename }}">{{ dossier.topic }}</a></h3>
+                        <p class="date">Updated: {{ dossier.updated_at[:10] }}</p>
+                        <div class="tags">
+                            {% for tag in dossier.tags %}
+                            <span class="tag">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <script src="static/app.js"></script>
+</body>
+</html>

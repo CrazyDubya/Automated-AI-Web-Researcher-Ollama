@@ -33,6 +33,11 @@ The key distinction is that this isn't just a chatbot—it's an automated resear
 - Rich console output with status indicators
 - Comprehensive answer synthesis using web-sourced information
 - Research conversation mode for exploring findings
+- **Local Radar enhancements** (NEW):
+  - HTML report generation with interactive dashboard
+  - PDF pattern crawling with OCR support
+  - Vector embeddings and semantic search
+  - Interactive CLI with advanced commands
 
 ## Installation
 **Note:** To use on Windows, follow the instructions on the [/feature/windows-support](https://github.com/TheBlewish/Automated-AI-Web-Researcher-Ollama/tree/feature/windows-support) branch. For Linux and MacOS, use this main branch and the follow steps below:
@@ -97,6 +102,12 @@ Then change to the left of where it says replace with your Ollama model name, th
     - Press `CTRL+D` to submit.
     - Example: `@What year is the global population projected to start declining?`
 
+3.1. **Use Local Radar features (NEW):**
+    - Type `#` followed by Local Radar commands.
+    - Example: `#lr_help` to see available commands
+    - Example: `#lr_generate_daily` to create a daily brief
+    - Example: `#lr_search AI trends` to search indexed content
+
 4. **During research, you can use the following commands by typing the associated letter and submitting with `CTRL+D`:**
     - Use `s` to show status.
     - Use `f` to show the current focus.
@@ -122,6 +133,28 @@ This is a prototype that demonstrates functional automated research capabilities
 - Ollama
 - Python packages listed in `requirements.txt`
 - Recommended models: `phi3:3.8b-mini-128k-instruct` or `phi3:14b-medium-128k-instruct` (with custom context length as specified)
+- **Optional for Local Radar**: Tesseract OCR for PDF processing (`sudo apt-get install tesseract-ocr`)
+
+## Local Radar Features
+
+The enhanced system now includes **Local Radar** - a comprehensive suite of production-oriented features:
+
+### Key Capabilities
+- **HTML Reports**: Generate daily/weekly briefs and topic dossiers with interactive web dashboard
+- **PDF Crawling**: Automatically discover and extract text from PDF sources using pattern matching
+- **Vector Search**: Semantic search and document comparison using embeddings or TF-IDF fallback
+- **Interactive CLI**: Extended command interface with `#lr_` commands
+
+### Quick Start with Local Radar
+```bash
+# After conducting research with @query
+#lr_generate_daily           # Create today's research brief
+#lr_search "AI trends"       # Search indexed content  
+#lr_crawl_pdfs              # Extract text from configured PDF sources
+#lr_help                    # See all available commands
+```
+
+See [LOCAL_RADAR_GUIDE.md](LOCAL_RADAR_GUIDE.md) for complete documentation.
 
 ## Contributing
 Contributions are welcome! This is a prototype with room for improvements and new features.
