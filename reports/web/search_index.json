@@ -1,0 +1,32 @@
+[
+  {
+    "id": "idx_001",
+    "source": "research.org",
+    "ts": 1754770543,
+    "top_sentences": [
+      "Artificial intelligence continues to evolve rapidly.",
+      "Machine learning models are becoming more sophisticated.",
+      "Research in AI ethics is gaining importance."
+    ],
+    "tags": [
+      "AI",
+      "research"
+    ],
+    "url": "https://research.org/ai-evolution"
+  },
+  {
+    "id": "idx_002",
+    "source": "tech-news.com",
+    "ts": 1754766943,
+    "top_sentences": [
+      "Web development frameworks are rapidly changing.",
+      "New JavaScript libraries emerge frequently.",
+      "Performance optimization remains crucial."
+    ],
+    "tags": [
+      "web",
+      "development"
+    ],
+    "url": "https://tech-news.com/web-frameworks"
+  }
+]

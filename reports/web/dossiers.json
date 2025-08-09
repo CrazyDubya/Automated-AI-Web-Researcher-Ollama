@@ -1,0 +1,30 @@
+[
+  {
+    "id": "dossier_001",
+    "title": "AI Research Trends Q4 2024",
+    "date": "2024-12-15",
+    "source": "Research Aggregate",
+    "tags": [
+      "AI",
+      "research",
+      "trends"
+    ],
+    "summary": "Analysis of emerging AI research trends in Q4 2024",
+    "url": "/dossiers/ai_trends_q4_2024.html",
+    "confidence": 0.85
+  },
+  {
+    "id": "dossier_002",
+    "title": "Web Technology Evolution",
+    "date": "2024-12-14",
+    "source": "Tech News",
+    "tags": [
+      "web",
+      "technology",
+      "development"
+    ],
+    "summary": "Recent developments in web technology stack",
+    "url": "/dossiers/web_tech_evolution.html",
+    "confidence": 0.92
+  }
+]

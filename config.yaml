@@ -1,0 +1,40 @@
+# Radar Configuration
+trailkeeper:
+  enabled: true
+
+embedding_cache:
+  enabled: true  # auto-enabled only if trailkeeper.enabled true
+  db_path: .radar/emb_cache.sqlite
+  batch_size: 64
+  log_summary: true
+
+diff:
+  boilerplate_filter: true
+  boilerplate_history_window: 30
+  boilerplate_frequency_threshold: 0.85
+  boilerplate_min_block_chars: 40
+
+pdf:
+  discovery:
+    enabled: true
+    max_new_per_run: 15
+    index_pages:
+      - name: ExampleSource
+        url: https://example.org/press
+        pattern: "*Meeting*.pdf"
+    max_bytes_per_file: 5242880  # 5MB
+
+ethics:
+  concurrency:
+    enabled: true
+    max_concurrency: 8
+    per_domain_max: 2
+
+search:
+  filter_default_since_days: 14
+  query_expansion: false
+  stream_answers: false
+  result_limit: 12
+
+reports:
+  web_output_dir: reports/web
