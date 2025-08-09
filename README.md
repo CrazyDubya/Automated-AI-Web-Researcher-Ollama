@@ -140,5 +140,28 @@ Given how much I have been using it myself, unlike the previous program, which f
 
 Please enjoy! And feel free to submit any suggestions for improvements so that we can make this automated AI researcher even more capable.
 
+## Tuning & Performance Toolkit
+
+New helper scripts:
+- `scripts/semantic_diff_tuner.py` – experiment with semantic diff thresholds (simulate or real files) to calibrate `diff.semantic_min_delta_score`.
+- `scripts/radar_benchmark.py` – measure timing for each pipeline stage (fetch, diff, embedding, report) across repeated runs.
+
+Docs:
+- `docs/performance.md` – detailed guidance on optimizing for different hardware profiles.
+- `docs/trailkeeper_quickstart.md` – enabling semantic search (Trailkeeper) on minimal hardware.
+
+Example threshold tuning run:
+```
+python scripts/semantic_diff_tuner.py --simulate 1 --out diff_thresholds.md
+cat diff_thresholds.md
+```
+
+Benchmark sample:
+```
+python scripts/radar_benchmark.py --mode daily --repeat 5 --sleep 5
+```
+
+If embeddings or FAISS are unavailable, scripts degrade gracefully with warnings.
+
 ## Disclaimer
 This project is for educational purposes only. Ensure you comply with the terms of service of all APIs and services used.
