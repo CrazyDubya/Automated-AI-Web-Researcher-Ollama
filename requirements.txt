@@ -11,3 +11,13 @@ tqdm
 urllib3
 openai>=1.0.0
 anthropic>=0.7.0
+# Local Radar dependencies
+pdfminer.six
+pytesseract
+Pillow
+PyMuPDF
+sentence-transformers
+faiss-cpu
+jinja2
+scikit-learn
+nltk
