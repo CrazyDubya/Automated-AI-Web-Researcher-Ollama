@@ -1,0 +1,133 @@
+version: 1
+timezone: "America/Los_Angeles"
+storage:
+  base_dir: ".radar"
+  reports_dir: "reports"
+ethics:
+  user_agent: "RadarBot/0.2 (+contact: you@example.com)"
+  obey_robots: true
+  rate_limit_per_domain_per_minute: 6
+  request_timeout_seconds: 20
+  cache_max_age_days: 30
+llm:
+  chat_model: "llama3.1:8b-instruct-q4_0"
+  embed_model: "nomic-embed-text"
+  temperature: 0.2
+  max_tokens: 1400
+outputs:
+  formats: ["markdown"]
+  include_citations: true
+  include_diffs: true
+  group_by_tags: true
+  max_items_per_run: 40
+pdf:
+  max_bytes_per_file: 5000000   # ~5MB safety cap
+watchlist:
+  feeds:
+    - name: "NYC Council Legislation"
+      url: "https://nyc.legistar.com/Feed.ashx?M=Legislation&ID=0&GUID="
+      tags: ["civic-local","legislation"]
+      keywords_any: ["zoning","broadband","housing","resilience","toll"]
+    - name: "NYC Council Calendar"
+      url: "https://nyc.legistar.com/Feed.ashx?M=Calendar&ID=0&GUID="
+      tags: ["civic-local","meetings"]
+    - name: "NY Governor Press"
+      url: "https://www.governor.ny.gov/rss"  # verify
+      tags: ["civic-state","executive"]
+      keywords_any: ["broadband","housing","climate","infrastructure"]
+    - name: "Federal Register (Broadband/Housing/Infra)"
+      url: "https://www.federalregister.gov/documents/search.rss?conditions[term]=broadband+OR+%22affordable+housing%22+OR+infrastructure"
+      tags: ["civic-federal","regulatory"]
+    - name: "FCC Daily Digest"
+      url: "https://www.fcc.gov/news-events/daily-digest/rss"
+      tags: ["civic-federal","telecom"]
+      keywords_any: ["broadband","spectrum","digital"]
+    - name: "NTIA Press"
+      url: "https://ntia.gov/rss/press-releases.xml"
+      tags: ["civic-federal","broadband"]
+    - name: "HUD Press"
+      url: "https://www.hud.gov/press/press_releases/rss"
+      tags: ["civic-federal","housing"]
+  urls_diff:
+    - name: "NYC Mayor News Index"
+      url: "https://www.nyc.gov/site/mayor/news.page"
+      tags: ["civic-local","executive"]
+      snapshot_format: "html"
+      frequency: "daily"
+    - name: "MTA Press Index"
+      url: "https://www.mta.info/press-release"
+      tags: ["civic-local","transit"]
+      snapshot_format: "html"
+      frequency: "daily"
+    - name: "NYC OTI Broadband Initiative"
+      url: "https://www.nyc.gov/site/oti/programs/digital-equity.page"
+      tags: ["civic-local","infra","broadband"]
+      snapshot_format: "html"
+      frequency: "daily"
+    - name: "PSC Key Docket Summary"
+      url: "https://documents.dps.ny.gov/public/MatterManagement/CaseMaster.aspx?MatterCaseNo=XX-XXXX"  # replace docket id
+      tags: ["civic-state","regulatory","broadband"]
+      snapshot_format: "html"
+      frequency: "daily"
+    - name: "NYC HPD Policy Announcements"
+      url: "https://www.nyc.gov/site/hpd/news.page"
+      tags: ["civic-local","housing"]
+      snapshot_format: "html"
+      frequency: "daily"
+  pdf_sources:
+    - name: "MTA Board Meeting PDFs"
+      url_pattern: "https://new.mta.info/document/*.pdf"
+      tags: ["civic-local","transit"]
+    - name: "NYC Council Hearing Agendas"
+      url_pattern: "https://nyc.legistar.com/View.ashx?M=F&ID=*&GUID=*"
+      tags: ["civic-local","meetings"]
+    - name: "PSC Orders Broadband Docket"
+      url_pattern: "https://documents.dps.ny.gov/public/Common/ViewDoc.aspx?DocRefId=*"
+      tags: ["civic-state","regulatory","broadband"]
+  local_paths:
+    - path: "~/Documents/NYC/Notes"
+      glob: "**/*.md"
+      tags: ["internal","notes"]
+    - path: "~/Documents/NYC/SourcePapers"
+      glob: "**/*.pdf"
+      tags: ["internal","sources"]
+    - path: "~/Documents/NYC/MeetingMinutes"
+      glob: "**/*.md"
+      tags: ["internal","meetings"]
+
+topics:
+  - name: "NYC Congestion Pricing"
+    queries: ["congestion pricing","central business district tolling","MTA tolling"]
+    include_sources:
+      - "NYC Council Legislation"
+      - "NYC Council Calendar"
+      - "MTA Press Index"
+      - "NYC Mayor News Index"
+      - "NY Governor Press"
+    tags: ["civic-local","transit"]
+  - name: "NYC Housing & Zoning Reform"
+    queries: ["housing reform","zoning text amendment","inclusionary housing","HPD policy"]
+    include_sources:
+      - "NYC Council Legislation"
+      - "NYC Council Calendar"
+      - "NYC HPD Policy Announcements"
+      - "NYC Mayor News Index"
+      - "HUD Press"
+    tags: ["civic-local","housing"]
+  - name: "NYC/State Broadband & Digital Equity"
+    queries: ["broadband","digital equity","NTIA","ConnectALL","PSC broadband"]
+    include_sources:
+      - "Federal Register (Broadband/Housing/Infra)"
+      - "FCC Daily Digest"
+      - "NTIA Press"
+      - "NYC OTI Broadband Initiative"
+      - "PSC Key Docket Summary"
+      - "NY Governor Press"
+    tags: ["civic-local","civic-state","infra","broadband"]
+  - name: "Climate Resilience NYC Waterfront"
+    queries: ["climate resilience","storm surge","flood mitigation","waterfront plan"]
+    include_sources:
+      - "NYC Council Legislation"
+      - "NYC Mayor News Index"
+      - "Federal Register (Broadband/Housing/Infra)"
+    tags: ["civic-local","climate"]
