@@ -531,9 +531,11 @@ class VectorIndex:
         
         # Remove index files
         index_dir = Path(self.config.vector.index_dir)
-        for file_path in index_dir.glob('*'):
-            if file_path.is_file():
-                file_path.unlink()
+        # Only delete known index file types
+        for pattern in ('*.json', '*.bin', '*.pkl'):
+            for file_path in index_dir.glob(pattern):
+                if file_path.is_file():
+                    file_path.unlink()
         
         self.logger.info("Vector index cleared")
 
