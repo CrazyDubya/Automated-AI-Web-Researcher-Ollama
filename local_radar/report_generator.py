@@ -7,11 +7,16 @@ import os
 import json
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
-from jinja2 import Environment, FileSystemLoader, Template
+from jinja2 import Environment, FileSystemLoader, Template, select_autoescape
 from pathlib import Path
+import logging
 
 from .base import ReportEntry, ResearchBrief, Dossier
 from .config import config
+from .security import (
+    sanitize_html, escape_html, validate_filename, safe_path_join,
+    validate_tag, validate_url, secure_delete_file, log_security_event
+)
 
 
 class HTMLReportGenerator:
@@ -19,11 +24,21 @@ class HTMLReportGenerator:
     
     def __init__(self):
         self.config = config
+        self.logger = logging.getLogger(__name__)
         self.config.ensure_directories()
         
-        # Set up Jinja2 environment
+        # Set up Jinja2 environment with auto-escaping enabled for security
         template_loader = FileSystemLoader(self.config.report.template_dir)
-        self.env = Environment(loader=template_loader)
+        self.env = Environment(
+            loader=template_loader,
+            autoescape=select_autoescape(['html', 'xml']),
+            trim_blocks=True,
+            lstrip_blocks=True
+        )
+        
+        # Add custom filters for additional security
+        self.env.filters['sanitize_html'] = sanitize_html
+        self.env.filters['escape_html'] = escape_html
         
         # Create templates if they don't exist
         self._create_default_templates()
@@ -52,28 +67,48 @@ class HTMLReportGenerator:
             js_path.write_text(self._get_default_js())
     
     def generate_daily_brief(self, entries: List[ReportEntry]) -> ResearchBrief:
-        """Generate a daily research brief"""
-        today = datetime.now()
-        date_range = today.strftime("%Y-%m-%d")
-        
-        # Extract unique tags
-        all_tags = set()
-        for entry in entries:
-            all_tags.update(entry.tags)
-        
-        # Generate summary using LLM if available
-        summary = self._generate_summary(entries, "daily")
-        
-        brief = ResearchBrief(
-            brief_type="daily",
-            date_range=date_range,
-            entries=entries,
-            summary=summary,
-            tags=list(all_tags),
-            generated_at=datetime.now()
-        )
-        
-        return brief
+        """Generate a daily research brief with security validation"""
+        try:
+            # Validate and sanitize entries
+            validated_entries = []
+            for entry in entries:
+                validated_entry = self._validate_report_entry(entry)
+                if validated_entry:
+                    validated_entries.append(validated_entry)
+            
+            today = datetime.now()
+            date_range = today.strftime("%Y-%m-%d")
+            
+            # Extract and validate unique tags
+            all_tags = set()
+            for entry in validated_entries:
+                for tag in entry.tags:
+                    try:
+                        safe_tag = validate_tag(tag)
+                        all_tags.add(safe_tag)
+                    except Exception as e:
+                        self.logger.warning(f"Invalid tag '{tag}' removed: {e}")
+            
+            # Generate summary using LLM if available
+            summary = self._generate_summary(validated_entries, "daily")
+            
+            brief = ResearchBrief(
+                brief_type="daily",
+                date_range=date_range,
+                entries=validated_entries,
+                summary=summary,
+                tags=list(all_tags),
+                generated_at=datetime.now()
+            )
+            
+            return brief
+        except Exception as e:
+            self.logger.error(f"Error generating daily brief: {e}")
+            log_security_event("REPORT_GENERATION_ERROR", {
+                "brief_type": "daily",
+                "error": str(e)
+            })
+            raise
     
     def generate_weekly_brief(self, entries: List[ReportEntry]) -> ResearchBrief:
         """Generate a weekly research brief"""
@@ -810,3 +845,81 @@ document.addEventListener('DOMContentLoaded', function() {
         }, autoRefreshInterval);
     }
 });'''
+    
+    def _validate_report_entry(self, entry: ReportEntry) -> ReportEntry:
+        """
+        Validate and sanitize a report entry for security
+        
+        Args:
+            entry: Raw report entry
+            
+        Returns:
+            Validated and sanitized report entry
+            
+        Raises:
+            ValueError: If entry is invalid
+        """
+        if not entry:
+            raise ValueError("Report entry cannot be None")
+        
+        # Validate and sanitize title
+        if not entry.title or not entry.title.strip():
+            raise ValueError("Report entry must have a title")
+        safe_title = sanitize_html(str(entry.title).strip())
+        
+        # Validate and sanitize content  
+        if not entry.content or not entry.content.strip():
+            raise ValueError("Report entry must have content")
+        safe_content = sanitize_html(str(entry.content).strip())
+        
+        # Validate URL
+        if entry.source_url and not validate_url(entry.source_url):
+            self.logger.warning(f"Invalid URL in entry '{safe_title}': {entry.source_url}")
+            log_security_event("INVALID_URL_DETECTED", {
+                "title": safe_title,
+                "url": entry.source_url
+            })
+            # Don't fail, just log and continue with empty URL
+            safe_url = ""
+        else:
+            safe_url = entry.source_url or ""
+        
+        # Validate and sanitize tags
+        safe_tags = []
+        for tag in entry.tags:
+            try:
+                safe_tag = validate_tag(tag)
+                safe_tags.append(safe_tag)
+            except Exception as e:
+                self.logger.warning(f"Invalid tag '{tag}' in entry '{safe_title}': {e}")
+        
+        # Validate confidence score
+        safe_confidence = float(entry.confidence_score) if isinstance(entry.confidence_score, (int, float)) else 0.0
+        safe_confidence = max(0.0, min(1.0, safe_confidence))  # Clamp to 0-1 range
+        
+        # Validate timestamp
+        safe_timestamp = entry.timestamp if isinstance(entry.timestamp, datetime) else datetime.now()
+        
+        # Validate metadata
+        safe_metadata = {}
+        if isinstance(entry.metadata, dict):
+            for key, value in entry.metadata.items():
+                # Sanitize metadata keys and values
+                safe_key = escape_html(str(key)[:50])  # Limit key length
+                if isinstance(value, str):
+                    safe_value = escape_html(value[:500])  # Limit value length
+                elif isinstance(value, (int, float, bool)):
+                    safe_value = value
+                else:
+                    safe_value = escape_html(str(value)[:500])
+                safe_metadata[safe_key] = safe_value
+        
+        return ReportEntry(
+            title=safe_title,
+            content=safe_content,
+            source_url=safe_url,
+            timestamp=safe_timestamp,
+            tags=safe_tags,
+            confidence_score=safe_confidence,
+            metadata=safe_metadata
+        )

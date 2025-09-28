@@ -6,6 +6,8 @@ Crawls PDF sources using pattern matching and extracts text with OCR fallback
 import os
 import re
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import logging
 from typing import List, Dict, Optional, Any
 from urllib.parse import urljoin, urlparse
@@ -13,6 +15,8 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 from dataclasses import dataclass
+import tempfile
+import contextlib
 
 from pdfminer.high_level import extract_text
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
@@ -29,6 +33,7 @@ except ImportError:
     TESSERACT_AVAILABLE = False
 
 from .config import config
+from .security import validate_url, validate_filename, log_security_event, SecurityError
 
 
 @dataclass
@@ -67,7 +72,19 @@ class PDFPatternCrawler:
     def __init__(self):
         self.config = config
         self.logger = logging.getLogger(__name__)
+        
+        # Set up requests session with retry strategy
         self.session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "OPTIONS"]
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
+        
         self.session.headers.update({
             'User-Agent': 'Local-Radar-PDF-Crawler/1.0'
         })
@@ -299,15 +316,56 @@ class PDFPatternCrawler:
             return False
     
     def _extract_single_pdf(self, pdf_url: str) -> PDFExtractionResult:
-        """Extract text from a single PDF with fallback methods"""
+        """Extract text from a single PDF with enhanced security and resource management"""
         self.logger.info(f"Extracting text from: {pdf_url}")
         
+        # Validate URL first
+        if not validate_url(pdf_url):
+            return PDFExtractionResult(
+                url=pdf_url,
+                text='',
+                method='none',
+                success=False,
+                error='Invalid URL format'
+            )
+        
+        temp_file = None
         try:
-            # Download PDF content
-            response = self.session.get(pdf_url, timeout=self.config.pdf.timeout_seconds)
+            # Download PDF content with size limits
+            response = self.session.get(
+                pdf_url, 
+                timeout=self.config.pdf.timeout_seconds,
+                stream=True  # Stream to handle large files
+            )
             response.raise_for_status()
             
-            pdf_content = response.content
+            # Check content type
+            content_type = response.headers.get('content-type', '').lower()
+            if 'pdf' not in content_type and 'application/octet-stream' not in content_type:
+                log_security_event("SUSPICIOUS_CONTENT_TYPE", {
+                    "url": pdf_url,
+                    "content_type": content_type
+                })
+            
+            # Read content with size limit
+            pdf_content = b''
+            total_size = 0
+            max_size = self.config.pdf.max_file_size_mb * 1024 * 1024
+            
+            for chunk in response.iter_content(chunk_size=8192):
+                total_size += len(chunk)
+                if total_size > max_size:
+                    raise Exception(f"PDF file too large: {total_size} bytes (max: {max_size})")
+                pdf_content += chunk
+            
+            if not pdf_content:
+                return PDFExtractionResult(
+                    url=pdf_url,
+                    text='',
+                    method='none',
+                    success=False,
+                    error='Empty PDF content'
+                )
             
             # Try pdfminer first
             try:
@@ -315,10 +373,13 @@ class PDFPatternCrawler:
                 if text and len(text.strip()) > 50:  # Reasonable amount of text
                     return PDFExtractionResult(
                         url=pdf_url,
-                        text=text,
+                        text=text[:10000],  # Limit text length
                         method='pdfminer',
                         success=True,
-                        metadata={'size_bytes': len(pdf_content)}
+                        metadata={
+                            'size_bytes': len(pdf_content),
+                            'text_length': len(text)
+                        }
                     )
             except Exception as e:
                 self.logger.debug(f"PDFMiner failed for {pdf_url}: {e}")
@@ -330,10 +391,13 @@ class PDFPatternCrawler:
                     if text and len(text.strip()) > 20:
                         return PDFExtractionResult(
                             url=pdf_url,
-                            text=text,
+                            text=text[:10000],  # Limit text length
                             method='ocr',
                             success=True,
-                            metadata={'size_bytes': len(pdf_content)}
+                            metadata={
+                                'size_bytes': len(pdf_content),
+                                'text_length': len(text)
+                            }
                         )
                 except Exception as e:
                     self.logger.debug(f"OCR failed for {pdf_url}: {e}")
@@ -349,6 +413,7 @@ class PDFPatternCrawler:
             )
             
         except Exception as e:
+            self.logger.error(f"Error extracting PDF {pdf_url}: {e}")
             return PDFExtractionResult(
                 url=pdf_url,
                 text='',
@@ -356,6 +421,13 @@ class PDFPatternCrawler:
                 success=False,
                 error=str(e)
             )
+        finally:
+            # Clean up any temporary files
+            if temp_file and os.path.exists(temp_file):
+                try:
+                    os.unlink(temp_file)
+                except:
+                    pass
     
     def _extract_with_pdfminer(self, pdf_content: bytes) -> str:
         """Extract text using pdfminer"""
@@ -377,41 +449,66 @@ class PDFPatternCrawler:
         return text
     
     def _extract_with_ocr(self, pdf_content: bytes) -> str:
-        """Extract text using OCR (tesseract)"""
+        """Extract text using OCR (tesseract) with enhanced resource management"""
         if not TESSERACT_AVAILABLE:
             raise Exception("Tesseract OCR not available")
-            
-        # Convert PDF to images using PyMuPDF
-        doc = fitz.open(stream=pdf_content, filetype="pdf")
-        text_parts = []
         
-        for page_num in range(doc.page_count):
-            page = doc[page_num]
+        doc = None
+        try:
+            # Convert PDF to images using PyMuPDF
+            doc = fitz.open(stream=pdf_content, filetype="pdf")
+            text_parts = []
             
-            # Convert page to image
-            mat = fitz.Matrix(2.0, 2.0)  # Increase resolution
-            pix = page.get_pixmap(matrix=mat)
-            img_data = pix.tobytes("png")
+            # Limit number of pages for performance and security
+            max_pages = min(doc.page_count, 10)  # Process at most 10 pages
             
-            # Convert to PIL Image
-            from io import BytesIO
-            image = Image.open(BytesIO(img_data))
+            for page_num in range(max_pages):
+                page = doc[page_num]
+                
+                # Convert page to image with controlled resolution
+                mat = fitz.Matrix(2.0, 2.0)  # 2x resolution for better OCR
+                pix = page.get_pixmap(matrix=mat)
+                img_data = pix.tobytes("png")
+                
+                # Clean up page resources immediately
+                pix = None
+                page = None
+                
+                # Convert to PIL Image and run OCR
+                from io import BytesIO
+                try:
+                    with Image.open(BytesIO(img_data)) as image:
+                        # Limit image size for security
+                        if image.width * image.height > 4000 * 4000:  # 16M pixels max
+                            self.logger.warning(f"Image too large, skipping page {page_num}")
+                            continue
+                        
+                        # Run OCR with configuration
+                        ocr_config = '--oem 3 --psm 6'  # Use LSTM OCR engine
+                        languages = '+'.join(self.config.pdf.ocr_languages)
+                        
+                        text = pytesseract.image_to_string(
+                            image, 
+                            lang=languages,
+                            config=ocr_config
+                        )
+                        
+                        if text and text.strip():
+                            text_parts.append(text)
+                            
+                except Exception as e:
+                    self.logger.warning(f"OCR failed for page {page_num}: {e}")
+                    continue
             
-            # Run OCR
-            ocr_config = '--oem 3 --psm 6'  # Use LSTM OCR engine with uniform text block
-            languages = '+'.join(self.config.pdf.ocr_languages)
+            return '\n\n'.join(text_parts)
             
-            text = pytesseract.image_to_string(
-                image, 
-                lang=languages,
-                config=ocr_config
-            )
-            
-            if text.strip():
-                text_parts.append(text)
-        
-        doc.close()
-        return '\n\n'.join(text_parts)
+        finally:
+            # Ensure document is closed to free memory
+            if doc:
+                try:
+                    doc.close()
+                except:
+                    pass
     
     def save_extraction_results(self, results: Dict[str, List[PDFExtractionResult]], 
                               output_file: str = None) -> str:

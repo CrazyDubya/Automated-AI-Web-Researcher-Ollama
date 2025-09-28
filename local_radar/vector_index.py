@@ -1,6 +1,6 @@
 """
 Vector Index and RAG (Trailkeeper) for Local Radar
-Provides semantic search, document embeddings, and change detection
+Provides semantic search, document embeddings, and change detection with enhanced security
 """
 
 import os
@@ -12,6 +12,8 @@ from pathlib import Path
 import logging
 from datetime import datetime
 import hashlib
+import gc
+import threading
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -42,14 +44,16 @@ except ImportError:
 
 from .config import config
 from .base import ReportEntry
+from .security import validate_search_query, log_security_event, SecurityError
 
 
 class VectorIndex:
-    """Vector embedding and semantic search functionality"""
+    """Vector embedding and semantic search functionality with enhanced security"""
     
     def __init__(self):
         self.config = config
         self.logger = logging.getLogger(__name__)
+        self._lock = threading.RLock()  # Thread safety
         
         # Create index directory
         Path(self.config.vector.index_dir).mkdir(parents=True, exist_ok=True)
@@ -65,7 +69,12 @@ class VectorIndex:
         if not self.use_sentence_transformers:
             self.logger.warning("Using basic text matching fallback (advanced dependencies not available)")
             if SKLEARN_AVAILABLE:
-                self.tfidf_vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
+                self.tfidf_vectorizer = TfidfVectorizer(
+                    max_features=1000, 
+                    stop_words='english',
+                    max_df=0.95,  # Ignore terms that appear in > 95% of documents
+                    min_df=2      # Ignore terms that appear in < 2 documents
+                )
                 self.tfidf_matrix = None
             else:
                 self.tfidf_vectorizer = None
@@ -149,20 +158,34 @@ class VectorIndex:
         return self.add_document(full_text, metadata)
     
     def search(self, query: str, top_k: int = 10) -> List[Dict[str, Any]]:
-        """Search the vector index for similar documents"""
-        if not self.documents:
-            return []
-        
-        try:
-            if self.use_sentence_transformers and self.embedding_model is not None:
-                return self._search_with_embeddings(query, top_k)
-            elif SKLEARN_AVAILABLE and self.tfidf_vectorizer is not None:
-                return self._search_with_tfidf(query, top_k)
-            else:
-                return self._search_basic(query, top_k)
-        except Exception as e:
-            self.logger.error(f"Search failed: {e}")
-            return []
+        """Search the vector index for similar documents with input validation"""
+        with self._lock:
+            try:
+                # Validate search query
+                safe_query = validate_search_query(query)
+                
+                # Validate top_k parameter
+                top_k = max(1, min(top_k, 100))  # Limit to reasonable range
+                
+                if not self.documents:
+                    return []
+                
+                if self.use_sentence_transformers and self.embedding_model is not None:
+                    return self._search_with_embeddings(safe_query, top_k)
+                elif SKLEARN_AVAILABLE and self.tfidf_vectorizer is not None:
+                    return self._search_with_tfidf(safe_query, top_k)
+                else:
+                    return self._search_basic(safe_query, top_k)
+                    
+            except SecurityError as e:
+                log_security_event("VECTOR_SEARCH_VALIDATION_ERROR", {
+                    "query": query,
+                    "error": str(e)
+                })
+                return []
+            except Exception as e:
+                self.logger.error(f"Search failed: {e}")
+                return []
     
     def semantic_diff(self, text1: str, text2: str) -> Dict[str, Any]:
         """Compare two texts for semantic differences"""

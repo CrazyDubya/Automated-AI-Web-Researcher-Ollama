@@ -21,3 +21,8 @@ faiss-cpu
 jinja2
 scikit-learn
 nltk
+# Security and monitoring dependencies
+bleach>=6.0.0
+psutil>=5.9.0
+# Development and testing
+pytest>=7.0.0

@@ -16,6 +16,10 @@ from .report_generator import HTMLReportGenerator
 from .pdf_crawler import PDFPatternCrawler
 from .vector_index import vector_index
 from .base import ReportEntry
+from .security import (
+    validate_search_query, validate_filename, validate_url,
+    sanitize_html, escape_html, log_security_event, SecurityError
+)
 
 
 class LocalRadarCLI:
@@ -44,22 +48,40 @@ class LocalRadarCLI:
         }
     
     def handle_command(self, command: str) -> str:
-        """Handle a Local Radar CLI command"""
-        parts = command.strip().split()
-        if not parts:
-            return "No command provided"
-        
-        cmd = parts[0].lower()
-        args = parts[1:] if len(parts) > 1 else []
-        
-        if cmd in self.commands:
-            try:
+        """Handle a Local Radar CLI command with security validation"""
+        try:
+            if not command or not command.strip():
+                return "No command provided"
+            
+            # Basic command validation
+            command = command.strip()
+            if len(command) > 1000:  # Prevent extremely long commands
+                return "Command too long"
+            
+            parts = command.split()
+            cmd = parts[0].lower()
+            args = parts[1:] if len(parts) > 1 else []
+            
+            # Log command execution for security monitoring
+            log_security_event("CLI_COMMAND_EXECUTED", {
+                "command": cmd,
+                "args_count": len(args)
+            }, "INFO")
+            
+            if cmd in self.commands:
                 return self.commands[cmd](args)
-            except Exception as e:
-                self.logger.error(f"Error executing command {cmd}: {e}")
-                return f"Error: {e}"
-        else:
-            return f"Unknown Local Radar command: {cmd}. Type 'lr_help' for available commands."
+            else:
+                return f"Unknown Local Radar command: {cmd}. Type 'lr_help' for available commands."
+                
+        except SecurityError as e:
+            log_security_event("CLI_SECURITY_ERROR", {
+                "command": command,
+                "error": str(e)
+            })
+            return f"Security error: {e}"
+        except Exception as e:
+            self.logger.error(f"Error executing command {command}: {e}")
+            return f"Error: {e}"
     
     def show_help(self, args: List[str]) -> str:
         """Show available Local Radar commands"""
@@ -295,35 +317,47 @@ Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             return f"Error crawling PDFs: {e}"
     
     def search_reports(self, args: List[str]) -> str:
-        """Search through indexed content"""
+        """Search through indexed content with security validation"""
         if not args:
             return "Please provide a search query: lr_search <query>"
         
         query = " ".join(args)
         
         try:
-            results = vector_index.search(query, top_k=10)
+            # Validate and sanitize search query
+            safe_query = validate_search_query(query)
+            
+            results = vector_index.search(safe_query, top_k=10)
             
             if not results:
-                return f"No results found for query: {query}"
+                return f"No results found for query: {escape_html(safe_query)}"
             
-            output = [f"Search results for '{query}':\n"]
+            output = [f"Search results for '{escape_html(safe_query)}':\n"]
             
             for i, result in enumerate(results, 1):
                 metadata = result['metadata']
-                title = metadata.get('title', f"Document {metadata.get('doc_id', i)}")
-                doc_type = metadata.get('type', 'unknown')
+                # Sanitize metadata for display
+                title = escape_html(metadata.get('title', f"Document {metadata.get('doc_id', i)}"))
+                doc_type = escape_html(metadata.get('type', 'unknown'))
                 score = result['similarity_score']
                 
                 output.append(f"{i}. {title} ({doc_type}) - Score: {score:.3f}")
                 
-                # Show excerpt
-                text_excerpt = result['text'][:200] + "..." if len(result['text']) > 200 else result['text']
+                # Show sanitized excerpt
+                text_excerpt = escape_html(result['text'][:200])
+                if len(result['text']) > 200:
+                    text_excerpt += "..."
                 output.append(f"   {text_excerpt}")
                 output.append("")
             
             return "\n".join(output)
             
+        except SecurityError as e:
+            log_security_event("SEARCH_VALIDATION_ERROR", {
+                "query": query,
+                "error": str(e)
+            })
+            return f"Invalid search query: {e}"
         except Exception as e:
             return f"Error searching: {e}"
     
