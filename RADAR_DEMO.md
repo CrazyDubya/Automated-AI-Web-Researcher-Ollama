@@ -5,8 +5,14 @@ This demonstrates the Local Radar functionality for NYC civic/OSINT monitoring.
 ## Installation & Setup
 
 ```bash
-# Install dependencies
-pip install pyyaml feedparser pdfminer.six beautifulsoup4
+# Install core dependencies
+pip install -r requirements.txt
+
+# Or minimal installation
+pip install PyYAML feedparser pdfminer.six
+
+# For enhanced features (async, caching, vector search)
+pip install httpx aiofiles sentence-transformers faiss-cpu scikit-learn
 
 # Initialize configuration
 python cli/radar_cli.py init
